@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { dbPlugin } from './plugins/db.js';
 import { healthRoutes } from './routes/health.js';
+import { dbPingRoutes } from './routes/db-ping.js';
 
 export function buildServer(): FastifyInstance {
   const app = Fastify({
@@ -15,5 +16,6 @@ export function buildServer(): FastifyInstance {
   });
   app.register(dbPlugin);
   app.register(healthRoutes);
+  app.register(dbPingRoutes);
   return app;
 }
