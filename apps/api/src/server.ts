@@ -1,5 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
+import { dbPlugin } from './plugins/db.js';
 import { healthRoutes } from './routes/health.js';
 
 export function buildServer(): FastifyInstance {
@@ -12,6 +13,7 @@ export function buildServer(): FastifyInstance {
     },
     genReqId: () => randomUUID(),
   });
+  app.register(dbPlugin);
   app.register(healthRoutes);
   return app;
 }

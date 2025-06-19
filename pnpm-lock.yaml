@@ -41,9 +41,15 @@ importers:
 
   apps/api:
     dependencies:
+      '@pyawmal/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       fastify:
         specifier: ^5.0.0
         version: 5.8.5
+      fastify-plugin:
+        specifier: ^5.0.0
+        version: 5.1.0
       zod:
         specifier: ^4.4.3
         version: 4.4.3
@@ -1148,6 +1154,9 @@ packages:
 
   fast-uri@3.1.2:
     resolution: {integrity: sha512-rVjf7ArG3LTk+FS6Yw81V1DLuZl1bRbNrev6Tmd/9RaroeeRRJhAt7jg/6YFxbvAQXUCavSoZhPPj6oOx+5KjQ==}
+
+  fastify-plugin@5.1.0:
+    resolution: {integrity: sha512-FAIDA8eovSt5qcDgcBvDuX/v0Cjz0ohGhENZ/wpc3y+oZCY2afZ9Baqql3g/lC+OHRnciQol4ww7tuthOb9idw==}
 
   fastify@5.8.5:
     resolution: {integrity: sha512-Yqptv59pQzPgQUSIm87hMqHJmdkb1+GPxdE6vW6FRyVE9G86mt7rOghitiU4JHRaTyDUk9pfeKmDeu70lAwM4Q==}
@@ -2724,6 +2733,8 @@ snapshots:
   fast-safe-stringify@2.1.1: {}
 
   fast-uri@3.1.2: {}
+
+  fastify-plugin@5.1.0: {}
 
   fastify@5.8.5:
     dependencies:
