@@ -7,8 +7,9 @@ WORKDIR /repo
 FROM base AS deps
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY apps/api/package.json apps/api/
+COPY apps/web/package.json apps/web/
 COPY packages/db/package.json packages/db/
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --filter @pyawmal/api...
 
 FROM deps AS build
 COPY . .
