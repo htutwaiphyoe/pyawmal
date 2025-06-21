@@ -1,8 +1,11 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import { randomUUID } from 'node:crypto';
+import { PlaceholderSchema as _Placeholder } from '@pyawmal/shared';
 import { dbPlugin } from './plugins/db.js';
 import { healthRoutes } from './routes/health.js';
 import { dbPingRoutes } from './routes/db-ping.js';
+
+void _Placeholder;
 
 export function buildServer(): FastifyInstance {
   const app = Fastify({
