@@ -6,7 +6,8 @@
 
 ## 1. The mental model: a fenced-off process
 
-A container is *just a regular Linux process* — but one whose view of the system is fenced. From inside:
+A container is _just a regular Linux process_ — but one whose view of the system is fenced. From inside:
+
 - Own filesystem
 - Own process list (your process is PID 1)
 - Own network interfaces
@@ -20,21 +21,24 @@ From the host: it's still a process on the same kernel.
 ## 2. The three Linux primitives
 
 ### Namespaces — "what I can see"
-| Namespace | Isolates |
-|---|---|
-| PID | process IDs |
-| mount | filesystem mounts |
-| net | NICs, IPs, routing |
-| uts | hostname |
-| ipc | IPC channels |
-| user | UIDs/GIDs |
-| cgroup | the resource-limit view |
-| time | system clock |
+
+| Namespace | Isolates                |
+| --------- | ----------------------- |
+| PID       | process IDs             |
+| mount     | filesystem mounts       |
+| net       | NICs, IPs, routing      |
+| uts       | hostname                |
+| ipc       | IPC channels            |
+| user      | UIDs/GIDs               |
+| cgroup    | the resource-limit view |
+| time      | system clock            |
 
 ### cgroups — "how much I can use"
+
 CPU, memory, I/O, network bandwidth limits. Fargate's `cpu: "256"` and `memory: "512"` are cgroup constraints.
 
 ### Capabilities + seccomp — "what syscalls I can make"
+
 Capabilities = fine-grained privileges (drops most by default). Seccomp = syscall filter (blocks ~50 dangerous ones by default).
 
 **Namespaces + cgroups + capabilities = a container.** Everything else is tooling.
@@ -43,15 +47,15 @@ Capabilities = fine-grained privileges (drops most by default). Seccomp = syscal
 
 ## 3. Container vs VM
 
-| | VM | Container |
-|---|---|---|
-| Underneath | Hypervisor | Host kernel directly |
-| Each has | Own kernel + OS | Just a process tree |
-| Boot | 30s–2min | ms |
-| Memory overhead | Hundreds of MB | A few MB |
-| Isolation | Strong (separate kernel) | Weaker (shared kernel) |
-| Image size | GBs | MBs |
-| Cross-OS | Yes | Same kernel family only |
+|                 | VM                       | Container               |
+| --------------- | ------------------------ | ----------------------- |
+| Underneath      | Hypervisor               | Host kernel directly    |
+| Each has        | Own kernel + OS          | Just a process tree     |
+| Boot            | 30s–2min                 | ms                      |
+| Memory overhead | Hundreds of MB           | A few MB                |
+| Isolation       | Strong (separate kernel) | Weaker (shared kernel)  |
+| Image size      | GBs                      | MBs                     |
+| Cross-OS        | Yes                      | Same kernel family only |
 
 Docker Desktop on Mac/Windows runs a tiny Linux VM under containers (since they need the Linux kernel). ECS Fargate uses **Firecracker** micro-VMs to add VM-grade isolation between tenants.
 
@@ -85,6 +89,7 @@ Each layer's ID = SHA256 of its contents. Identical layers shared across images.
 **Dockerfile order rule:** rarely-changing things first (base image, dependencies), frequently-changing things last (source). Otherwise every code change reinstalls dependencies.
 
 ### Writable layer
+
 At runtime, Docker adds a writable layer on top. Writes go there. Discarded when the container stops. **State in containers is ephemeral** — use volumes (local) or external storage (S3, RDS) for persistence.
 
 ---
@@ -155,6 +160,7 @@ CMD ["node", "dist/index.js"]
 Without `.dockerignore`: `.git`, `node_modules`, `dist`, `.env*` all sent to daemon (slow build, bloated image, secret leakage).
 
 Our `.dockerignore`:
+
 ```
 node_modules
 dist
@@ -201,6 +207,7 @@ docker run \
 ```
 
 Debug:
+
 ```bash
 docker ps                              # running containers
 docker logs -f pyawmal-api             # tail logs

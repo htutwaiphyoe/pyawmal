@@ -7,6 +7,7 @@
 ## 1. The mental model: a private office building
 
 Imagine renting a whole floor of an office building. You decide:
+
 - The address space of your floor (what room numbers exist)
 - Which rooms get a phone line to the outside (public access)
 - Which rooms can only be reached from other rooms on your floor (private)
@@ -20,7 +21,7 @@ That's a VPC. Everything in AWS networking is variations on that idea.
 
 Every device on a network has an **IP address** — a 32-bit number written as four 0-255 numbers separated by dots (`10.0.5.42`). Think of it as a phone number for a machine.
 
-A **CIDR block** describes a *range* of IPs that share the first N bits. Notation is `address/N`:
+A **CIDR block** describes a _range_ of IPs that share the first N bits. Notation is `address/N`:
 
 ```
 10.0.0.0/16
@@ -33,12 +34,12 @@ A **CIDR block** describes a *range* of IPs that share the first N bits. Notatio
 
 Smaller CIDRs mean fewer addresses:
 
-| CIDR | Fixed bits | Variable bits | Total addresses |
-|---|---|---|---|
-| `/16` | 16 | 16 | 65,536 |
-| `/20` | 20 | 12 | 4,096 |
-| `/24` | 24 | 8 | 256 |
-| `/28` | 28 | 4 | 16 |
+| CIDR  | Fixed bits | Variable bits | Total addresses |
+| ----- | ---------- | ------------- | --------------- |
+| `/16` | 16         | 16            | 65,536          |
+| `/20` | 20         | 12            | 4,096           |
+| `/24` | 24         | 8             | 256             |
+| `/28` | 28         | 4             | 16              |
 
 In our config, `10.0.0.0/16` is the whole VPC. `10.0.10.0/24` is one subnet inside it — its `10.0.10.*` prefix is a subset of `10.0.*.*`.
 
@@ -65,6 +66,7 @@ A **public IP** is globally unique and routable on the internet. AWS assigns the
 A **VPC** (Virtual Private Cloud) is the boundary of your private network in AWS. One VPC = one isolated address space.
 
 A VPC has:
+
 - A name (`pyawmal-dev-vpc`)
 - A CIDR block (`10.0.0.0/16`) — **immutable**
 - A region (`ap-southeast-1` — VPCs cannot span regions)
@@ -148,6 +150,7 @@ Sits in a public subnet, has its own public IP, acts as a **one-way valve** for 
 Outbound packets get source IP rewritten to NAT's IP. Replies come back to NAT, which translates the destination back. **Inbound connections from the internet cannot traverse NAT** — they have no way to initiate a session through it.
 
 **Cost reality:** NAT Gateway is ~$32/mo + per-GB traffic. Biggest line item in our $50–75/mo budget. Alternatives:
+
 - **NAT instance** — t4g.nano EC2 running NAT software. ~$3/mo. Single point of failure; you patch it. OK for dev.
 - **VPC Interface Endpoints** — for AWS services only (ECR, S3, Secrets Manager, CloudWatch), traffic stays in-VPC, no NAT needed. ~$7/mo per endpoint.
 
@@ -158,6 +161,7 @@ A list of `(destination CIDR → target)` rules. Each subnet is associated with 
 When a packet leaves a subnet, AWS looks up the destination IP and forwards to the **most specific** matching rule (longest prefix match).
 
 **Public route table:**
+
 ```
 destination       target
 10.0.0.0/16   →   local              ← always present; intra-VPC
@@ -165,6 +169,7 @@ destination       target
 ```
 
 **Private route table:**
+
 ```
 destination       target
 10.0.0.0/16   →   local
@@ -179,8 +184,8 @@ destination       target
 
 **Pure routing.** Nothing else.
 
-A subnet is *effectively* public if its route table has `0.0.0.0/0 → IGW` AND its resources have public IPs.
-A subnet is *effectively* private if its route table has `0.0.0.0/0 → NAT` or no internet route at all.
+A subnet is _effectively_ public if its route table has `0.0.0.0/0 → IGW` AND its resources have public IPs.
+A subnet is _effectively_ private if its route table has `0.0.0.0/0 → NAT` or no internet route at all.
 
 There's no "public" flag on a subnet — only how it's wired. Get the route table wrong and your "private" subnet is anything but.
 
@@ -215,7 +220,7 @@ A **Security Group** is a stateful firewall attached to a network interface (ENI
 └──────────────┘
 ```
 
-**The critical trick:** ingress rules reference *other SG IDs*, not CIDRs. "ECS SG can talk to RDS SG" means *any ENI with the ECS SG attached* can reach *any ENI with the RDS SG attached*. IPs churn as tasks come and go; SG IDs are stable.
+**The critical trick:** ingress rules reference _other SG IDs_, not CIDRs. "ECS SG can talk to RDS SG" means _any ENI with the ECS SG attached_ can reach _any ENI with the RDS SG attached_. IPs churn as tasks come and go; SG IDs are stable.
 
 Even if someone discovers your RDS private IP, they can't connect from the internet: the RDS SG only allows packets from things with the ECS SG, and only ECS tasks have that SG.
 
@@ -223,7 +228,7 @@ Even if someone discovers your RDS private IP, they can't connect from the inter
 
 ## 9. NACLs — the other firewall
 
-A second firewall layer: **Network ACLs**, attached to *subnets* (not ENIs). NACLs are **stateless** (define ingress and egress separately) and support **Allow + Deny** rules evaluated in numeric order.
+A second firewall layer: **Network ACLs**, attached to _subnets_ (not ENIs). NACLs are **stateless** (define ingress and egress separately) and support **Allow + Deny** rules evaluated in numeric order.
 
 Use SGs by default. NACLs are for coarse "block this CIDR entirely from this subnet" cases (e.g., blocking known-malicious IP ranges). We won't touch them for pyawmal.
 
@@ -261,6 +266,7 @@ Use SGs by default. NACLs are for coarse "block this CIDR entirely from this sub
 ```
 
 Each Terraform block in Tasks 22–23 maps to:
+
 - `aws_vpc.this` — the building.
 - `aws_subnet.public/private` — floors.
 - `aws_internet_gateway.this` — the front door.

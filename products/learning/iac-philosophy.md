@@ -9,6 +9,7 @@
 Infrastructure is software too: source-controlled, reviewed, testable, deployable, rollbackable. The state of your infra = the state of your repo.
 
 Benefits:
+
 - Reproducibility (recreate the stack from repo).
 - Reviewability (PR review like app code).
 - Auditability (git log shows who/what/when).
@@ -33,19 +34,25 @@ This was normal in 2010. Don't slide back.
 ## 3. Declarative vs imperative
 
 ### Imperative
+
 "Run these steps."
+
 ```bash
 aws ec2 create-vpc --cidr 10.0.0.0/16
 aws ec2 create-subnet --vpc-id <from-above> ...
 ```
+
 Easy to read; brittle on rerun; you handle every edge case.
 
 ### Declarative (Terraform, CloudFormation, Pulumi, CDK, k8s manifests)
+
 "This is the end state."
+
 ```hcl
 resource "aws_vpc" "main" { cidr_block = "10.0.0.0/16" }
 resource "aws_subnet" "public" { vpc_id = aws_vpc.main.id, ... }
 ```
+
 Idempotent; dependency-aware; safe to rerun.
 
 **Mindset shift:** stop thinking in steps; think in end states.
@@ -57,6 +64,7 @@ Idempotent; dependency-aware; safe to rerun.
 Same code, same result, every time. Terraform `apply` with no changes does nothing.
 
 Properties enabled:
+
 - Schedule periodic reapply to repair drift.
 - Safe CI/CD integration.
 - New environments = same config, new context.
@@ -68,6 +76,7 @@ When writing custom infra scripts: **make them idempotent.** Check before create
 ## 5. GitOps mindset
 
 **Git = source of truth.**
+
 - PR → merge → automation applies.
 - Drift from repo → repo wins; automation reverts.
 - Lose repo → lose operational truth.
@@ -83,9 +92,11 @@ M0: apply-from-laptop while bootstrapping. M16: CI-only apply.
 **Drift** = reality diverged from code. Causes: console clicks, AWS auto-rotations, separate tools.
 
 ### Eventual convergence (default with Terraform)
+
 `terraform plan` surfaces drift on next run; engineer decides revert vs accept.
 
 ### Continuous reconciliation
+
 Controller runs `apply` on a schedule (every 5 min). Drift reverted automatically. Risky for things that legitimately self-adjust (autoscaling); great for application config (k8s).
 
 We use eventual convergence + plan-in-CI on every PR.
@@ -97,6 +108,7 @@ We use eventual convergence + plan-in-CI on every PR.
 Never mutate a running server. Bake a new image; roll out new instances; tear down old.
 
 Containers + ECS make this default. Benefits:
+
 - What you tested = what runs.
 - Each running version maps to a commit.
 - Trivial rollback (redeploy previous image).
@@ -125,6 +137,7 @@ With modules: encapsulate once, call N times.
 But **over-modularising is a sin.** A module with twelve variables and one usage is harder to read than the raw resources.
 
 Rules:
+
 - **Single responsibility.** "VPC module" creates VPC + subnets + routing only.
 - **Small interface.** 5 inputs OK; 15 is a smell.
 - **Outputs consumers need.** Not 47 attributes.
@@ -138,6 +151,7 @@ Rules:
 Resources committed to git. Secrets must NOT.
 
 Patterns:
+
 - **Reference, never embed** — Terraform reads ARNs; value lives in Secrets Manager.
 - **Generate at apply time** — `random_password`; lands in state, not code.
 - **Bootstrap then rotate** — Terraform sets initial; out-of-band rotates; Terraform `ignore_changes` after.
@@ -154,6 +168,7 @@ Task 20: S3 backend with SSE encryption + IAM-locked bucket.
 Plans show exactly what will change. Reviewer's job: read the plan, ask "is this what we want?"
 
 Plan symbols matter:
+
 - `+` create — safe.
 - `~` in-place update — usually safe.
 - `-` destroy — read carefully.
@@ -166,34 +181,36 @@ Reading plans is a learned skill. RDS engine-version upgrade looks innocent but 
 ## 12. Where IaC ends
 
 IaC manages **infrastructure shape**. Not:
+
 - Runtime application state (DB rows, S3 files) — backups/replication.
 - Imperative one-offs (migrations, marketing emails) — scripts or one-shot Lambdas.
 - Real-time orchestration (autoscaling, failover) — platform primitives.
 
-Common mistake: managing RDS *contents* (users, schemas) via Terraform Postgres provider. State explodes; lock contention awful. Use Prisma migrations for schemas; Terraform for the RDS instance around them.
+Common mistake: managing RDS _contents_ (users, schemas) via Terraform Postgres provider. State explodes; lock contention awful. Use Prisma migrations for schemas; Terraform for the RDS instance around them.
 
 ---
 
 ## 13. Anti-patterns we'll avoid
 
-| Anti-pattern | Why bad |
-|---|---|
-| Manual console changes | Drift, lost history, no review |
-| `terraform apply` from laptop to prod | No audit trail, no CI gate |
-| One giant `main.tf` per env | Unreadable |
-| Premature modularisation (no second caller) | Adds complexity without value |
-| Secrets in `.tf` files | Leaked to git |
-| `Resource: "*"` IAM | Privilege creep |
-| Skipping `plan` for "small" changes | The plan would have shown the surprise |
-| Long-lived infra branches | Conflicts compound |
-| `terraform destroy` to "start fresh" without snapshot | Catastrophic for stateful |
-| Disabling `prevent_destroy` casually | Removes safety net |
+| Anti-pattern                                          | Why bad                                |
+| ----------------------------------------------------- | -------------------------------------- |
+| Manual console changes                                | Drift, lost history, no review         |
+| `terraform apply` from laptop to prod                 | No audit trail, no CI gate             |
+| One giant `main.tf` per env                           | Unreadable                             |
+| Premature modularisation (no second caller)           | Adds complexity without value          |
+| Secrets in `.tf` files                                | Leaked to git                          |
+| `Resource: "*"` IAM                                   | Privilege creep                        |
+| Skipping `plan` for "small" changes                   | The plan would have shown the surprise |
+| Long-lived infra branches                             | Conflicts compound                     |
+| `terraform destroy` to "start fresh" without snapshot | Catastrophic for stateful              |
+| Disabling `prevent_destroy` casually                  | Removes safety net                     |
 
 ---
 
 ## 14. M0 vs M16 trajectory
 
 **M0 (now):**
+
 - Terraform with S3 + DynamoDB state backend.
 - One env directory (`dev/`).
 - One reusable module (`vpc/`).
@@ -201,6 +218,7 @@ Common mistake: managing RDS *contents* (users, schemas) via Terraform Postgres 
 - Apply-from-laptop acceptable while bootstrapping.
 
 **M16 (production hardening):**
+
 - Apply-from-CI only (devs lose write access to prod state).
 - Separate AWS accounts for dev/prod.
 - IAM permission boundaries.

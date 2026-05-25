@@ -7,6 +7,7 @@
 ## 1. The mental model
 
 Observability = three pillars:
+
 1. **Logs** (what happened, text)
 2. **Metrics** (how much / how often, numeric time-series)
 3. **Traces** (request journey across services — AWS X-Ray, deferred)
@@ -26,6 +27,7 @@ CloudWatch is actually **four products** under one name:
 ## 2. CloudWatch Logs
 
 ### Hierarchy
+
 ```
 Log group: /ecs/pyawmal-dev-api
   └── Log streams (one per source: ECS task, Lambda invocation, …)
@@ -33,16 +35,20 @@ Log group: /ecs/pyawmal-dev-api
 ```
 
 ### Retention
+
 ```hcl
 resource "aws_cloudwatch_log_group" "api" {
   name              = "/ecs/pyawmal-dev-api"
   retention_in_days = 14
 }
 ```
+
 Valid values: 1, 3, 5, 7, 14, 30, 60, 90, …, 3653 days, or `0` (forever). **Always set retention** — default is forever; bills grow.
 
 ### How `awslogs` from ECS works
+
 Task definition:
+
 ```jsonc
 "logConfiguration": {
   "logDriver": "awslogs",
@@ -53,6 +59,7 @@ Task definition:
   }
 }
 ```
+
 1. ECS agent attaches Docker's `awslogs` driver to your container.
 2. Every line your app writes to stdout/stderr is captured.
 3. Driver ships lines via `PutLogEvents` to CloudWatch.
@@ -60,6 +67,7 @@ Task definition:
 5. Execution role needs `logs:CreateLogStream` + `logs:PutLogEvents` (managed `AmazonECSTaskExecutionRolePolicy` covers).
 
 **Implications:**
+
 - Just `console.log` / `fastify.log` to stdout. Don't use the CW SDK directly.
 - 1-3s lag before lines appear (not real-time).
 
@@ -99,6 +107,7 @@ resource "aws_cloudwatch_log_metric_filter" "errors" {
 ```
 
 JSON-aware pattern syntax:
+
 - `{ $.level = "error" }`
 - `{ $.statusCode >= 500 }`
 - `{ $.userId = "*" && $.action = "login" }`
@@ -113,12 +122,12 @@ Time-series numeric data with **dimensions** (key-value labels). Example: `AWS/A
 
 ### Built-in metrics (free)
 
-| Namespace | Useful metrics |
-|---|---|
-| `AWS/ECS` | `CPUUtilization`, `MemoryUtilization` |
-| `AWS/RDS` | `CPUUtilization`, `DatabaseConnections`, `FreeableMemory`, `FreeStorageSpace` |
+| Namespace            | Useful metrics                                                                        |
+| -------------------- | ------------------------------------------------------------------------------------- |
+| `AWS/ECS`            | `CPUUtilization`, `MemoryUtilization`                                                 |
+| `AWS/RDS`            | `CPUUtilization`, `DatabaseConnections`, `FreeableMemory`, `FreeStorageSpace`         |
 | `AWS/ApplicationELB` | `RequestCount`, `TargetResponseTime`, `HTTPCode_Target_5XX_Count`, `HealthyHostCount` |
-| `AWS/NATGateway` | `BytesOutToDestination`, `ErrorPortAllocation` |
+| `AWS/NATGateway`     | `BytesOutToDestination`, `ErrorPortAllocation`                                        |
 
 ### Custom metrics — two ways
 
@@ -126,22 +135,26 @@ Time-series numeric data with **dimensions** (key-value labels). Example: `AWS/A
 2. **Embedded Metric Format (EMF)** — log lines include structured payload CloudWatch auto-extracts. **No extra API calls. Free.**
 
 EMF example:
+
 ```ts
 app.log.info({
   _aws: {
     Timestamp: Date.now(),
-    CloudWatchMetrics: [{
-      Namespace: 'Pyawmal/Api',
-      Dimensions: [['Operation']],
-      Metrics: [{ Name: 'MessagesSent', Unit: 'Count' }]
-    }]
+    CloudWatchMetrics: [
+      {
+        Namespace: 'Pyawmal/Api',
+        Dimensions: [['Operation']],
+        Metrics: [{ Name: 'MessagesSent', Unit: 'Count' }],
+      },
+    ],
   },
   Operation: 'send_message',
-  MessagesSent: 1
+  MessagesSent: 1,
 });
 ```
 
 ### Resolution
+
 - **Standard** — 1-min, free.
 - **High-resolution** — 1-sec, ~$0.30/metric/mo.
 
@@ -170,6 +183,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
 ```
 
 Key fields:
+
 - `evaluation_periods` × `period` — window for evaluation.
 - `statistic` — `Sum`, `Average`, `Maximum`, `p95`, etc.
 - `treat_missing_data` — `notBreaching` / `breaching` / `ignore` / `missing`.
@@ -199,6 +213,7 @@ fields @timestamp, @message
 ```
 
 Examples:
+
 ```
 # Requests for one user
 fields @timestamp, reqId, action, statusCode
@@ -255,6 +270,7 @@ resource "aws_cloudwatch_event_rule" "ecs_task_failures" {
 ```
 
 Uses:
+
 - ECS failures → Slack
 - Secret rotation → flush connection pools
 - Scheduled cron-like Lambda triggers
@@ -274,6 +290,7 @@ resource "aws_cloudwatch_log_group" "api" {
 Task def wires `awslogs` → this group. pino JSON → stdout → CloudWatch.
 
 Tail in dev:
+
 ```bash
 aws logs tail /ecs/pyawmal-dev-api --follow --region ap-southeast-1
 ```

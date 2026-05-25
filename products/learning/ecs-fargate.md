@@ -28,12 +28,15 @@ ECS is a container orchestrator. You declare "I want N copies of this image runn
 ## 2. The three concepts
 
 ### Task definition — the blueprint
+
 Versioned JSON: image, CPU/memory, env, secrets, ports, IAM roles, log config. Each diff creates a new immutable **revision**.
 
 ### Task — a running instance
+
 What ECS creates from a task definition. Has an ID, ENI, IP, state, stop reason.
 
 ### Service — the fleet manager
+
 "Always keep N tasks of this task definition running, behind these load balancers, replace failed ones, support rolling deploys."
 
 ```
@@ -53,47 +56,54 @@ Task definition (blueprint)
 ```jsonc
 {
   "family": "pyawmal-dev-api",
-  "networkMode": "awsvpc",         // each task gets its own ENI + private IP
+  "networkMode": "awsvpc", // each task gets its own ENI + private IP
   "requiresCompatibilities": ["FARGATE"],
-  "cpu": "256",                    // 0.25 vCPU (Fargate sizes are quantized)
-  "memory": "512",                 // 0.5 GB
+  "cpu": "256", // 0.25 vCPU (Fargate sizes are quantized)
+  "memory": "512", // 0.5 GB
   "executionRoleArn": "arn:aws:iam::123:role/pyawmal-dev-task-exec",
-  "taskRoleArn":      "arn:aws:iam::123:role/pyawmal-dev-task",
-  "containerDefinitions": [{
-    "name": "api",
-    "image": "...ecr.../pyawmal/api:abc123",
-    "essential": true,
-    "portMappings": [{ "containerPort": 3000, "protocol": "tcp" }],
-    "environment": [
-      { "name": "NODE_ENV",  "value": "production" },
-      { "name": "PORT",      "value": "3000" },
-      { "name": "LOG_LEVEL", "value": "info" }
-    ],
-    "secrets": [
-      { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:...:secret:pyawmal/dev/DATABASE_URL-xY" }
-    ],
-    "logConfiguration": {
-      "logDriver": "awslogs",
-      "options": {
-        "awslogs-group":         "/ecs/pyawmal-dev-api",
-        "awslogs-region":        "ap-southeast-1",
-        "awslogs-stream-prefix": "api"
-      }
-    }
-  }]
+  "taskRoleArn": "arn:aws:iam::123:role/pyawmal-dev-task",
+  "containerDefinitions": [
+    {
+      "name": "api",
+      "image": "...ecr.../pyawmal/api:abc123",
+      "essential": true,
+      "portMappings": [{ "containerPort": 3000, "protocol": "tcp" }],
+      "environment": [
+        { "name": "NODE_ENV", "value": "production" },
+        { "name": "PORT", "value": "3000" },
+        { "name": "LOG_LEVEL", "value": "info" },
+      ],
+      "secrets": [
+        {
+          "name": "DATABASE_URL",
+          "valueFrom": "arn:aws:secretsmanager:...:secret:pyawmal/dev/DATABASE_URL-xY",
+        },
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/pyawmal-dev-api",
+          "awslogs-region": "ap-southeast-1",
+          "awslogs-stream-prefix": "api",
+        },
+      },
+    },
+  ],
 }
 ```
 
 Critical fields:
+
 - **`family`** — name; revisions share a family.
 - **`networkMode: "awsvpc"`** — required for Fargate.
 - **`cpu`/`memory`** — Fargate enforces a published matrix of valid combinations.
-- **`executionRoleArn`** — ECS *agent's* identity (pull ECR, fetch secrets, ship logs).
-- **`taskRoleArn`** — your *application's* identity (used by AWS SDK at runtime).
+- **`executionRoleArn`** — ECS _agent's_ identity (pull ECR, fetch secrets, ship logs).
+- **`taskRoleArn`** — your _application's_ identity (used by AWS SDK at runtime).
 - **`environment`** is plaintext; **`secrets`** references Secrets Manager. Never put credentials in `environment`.
 - **`essential: true`** — if container exits, task fails.
 
 ### Revisions
+
 Each task-definition change creates an immutable revision (`:1`, `:2`, …). The service points at a revision. Deploying = new image + new revision + service points at it.
 
 ---
@@ -104,30 +114,34 @@ Each task-definition change creates an immutable revision (`:1`, `:2`, …). The
 PROVISIONING → PENDING → ACTIVATING → RUNNING → DEACTIVATING → STOPPING → DEPROVISIONING → STOPPED
 ```
 
-| Stuck where | Usual cause |
-|---|---|
-| **PROVISIONING** indefinitely | Fargate capacity exhausted; subnet IP exhaustion; missing platform version. |
-| **PENDING → STOPPED** `CannotPullContainerError` | No NAT → can't reach ECR. Or execution role missing `ecr:GetAuthorizationToken`. Or image tag doesn't exist. |
-| **PENDING → STOPPED** `unable to retrieve secret` | Execution role missing `secretsmanager:GetSecretValue` on the secret ARN. |
-| **RUNNING → STOPPED** `OutOfMemoryError` | Bumped past `memory`. Bump the value or fix the leak. |
-| **RUNNING → STOPPED** `Essential container exited` | App crashed at startup. **Read CloudWatch logs**. Almost always misconfigured env or DB unreachable. |
-| **RUNNING → STOPPED** no obvious reason | ALB de-registered for failing health checks → ECS replaces. |
+| Stuck where                                        | Usual cause                                                                                                  |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **PROVISIONING** indefinitely                      | Fargate capacity exhausted; subnet IP exhaustion; missing platform version.                                  |
+| **PENDING → STOPPED** `CannotPullContainerError`   | No NAT → can't reach ECR. Or execution role missing `ecr:GetAuthorizationToken`. Or image tag doesn't exist. |
+| **PENDING → STOPPED** `unable to retrieve secret`  | Execution role missing `secretsmanager:GetSecretValue` on the secret ARN.                                    |
+| **RUNNING → STOPPED** `OutOfMemoryError`           | Bumped past `memory`. Bump the value or fix the leak.                                                        |
+| **RUNNING → STOPPED** `Essential container exited` | App crashed at startup. **Read CloudWatch logs**. Almost always misconfigured env or DB unreachable.         |
+| **RUNNING → STOPPED** no obvious reason            | ALB de-registered for failing health checks → ECS replaces.                                                  |
 
 ---
 
 ## 5. Deployment strategies
 
 ### Rolling (default)
+
 Two knobs:
+
 - `minimumHealthyPercent` (default 100) — never below this fraction during deploy.
 - `maximumPercent` (default 200) — peak during deploy.
 
 For `desired_count = 1`, defaults mean ECS adds 1 → waits healthy → drains 1.
 
 ### Blue/Green (via CodeDeploy)
+
 Whole new fleet alongside old; cut over; bake; destroy old. Zero risk of mixed versions; doubles cost during bake.
 
 ### Canary
+
 Shift X% of traffic to new fleet first; monitor; shift the rest. Needs CodeDeploy or other tooling.
 
 M0 uses rolling. M16 might revisit.
@@ -146,9 +160,10 @@ M0 uses rolling. M16 might revisit.
 ```
 
 Hence Task 10 (graceful shutdown):
+
 ```ts
 async function shutdown(signal: string): Promise<void> {
-  await app.close();   // Fastify stops accepting, waits for in-flight
+  await app.close(); // Fastify stops accepting, waits for in-flight
   process.exit(0);
 }
 process.on('SIGTERM', () => void shutdown('SIGTERM'));
@@ -160,11 +175,11 @@ Without this: every deploy drops in-flight requests. For M4+ (WebSockets) we'll 
 
 ## 7. Three different health checks
 
-| Layer | Where | Effect |
-|---|---|---|
-| **ALB target-group health check** | Target group config | ALB stops routing to unhealthy targets |
-| **ECS container health check** | `containerDefinitions[].healthCheck` (Docker style) | Marks task unhealthy from ECS's view |
-| **ECS service health-check grace period** | `health_check_grace_period_seconds` | How long after task start before ALB-unhealthy fails the deploy |
+| Layer                                     | Where                                               | Effect                                                          |
+| ----------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
+| **ALB target-group health check**         | Target group config                                 | ALB stops routing to unhealthy targets                          |
+| **ECS container health check**            | `containerDefinitions[].healthCheck` (Docker style) | Marks task unhealthy from ECS's view                            |
+| **ECS service health-check grace period** | `health_check_grace_period_seconds`                 | How long after task start before ALB-unhealthy fails the deploy |
 
 M0 uses only ALB target-group health check on `/health`. Sufficient.
 
@@ -173,11 +188,13 @@ M0 uses only ALB target-group health check on `/health`. Sufficient.
 ## 8. Networking — `awsvpc` mode
 
 Fargate requires `awsvpc`. Each task gets:
+
 - Own ENI
 - Own private IP from your subnet
 - Own SGs
 
 Consequences:
+
 - Each task consumes one IP — size subnets accordingly (`/24` = 251 usable; safe).
 - ENI provisioning ~20-30s → first cold start slow.
 - Cross-AZ ENI traffic is free within a VPC.
@@ -210,6 +227,7 @@ aws ecs execute-command \
 ```
 
 Prerequisites:
+
 - Service has `enableExecuteCommand: true` (off by default).
 - Task role has ECS Exec permissions (`ssmmessages:*` etc.).
 - Container image has a shell (`alpine` does; pure `distroless` doesn't).

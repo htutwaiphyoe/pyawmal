@@ -12,13 +12,13 @@ Private OCI container registry inside your AWS account. Docker Hub, but yours: I
 
 ## 2. The five things ECR has
 
-| Term | What |
-|---|---|
-| Registry | Account-scoped, one per region, auto-created |
-| Repository | Named container of one image's versions (`pyawmal/api`) |
-| Image | OCI bytes; identified by digest (`sha256:abc...`) |
-| Tag | Human label pointing to a digest (mutable by default) |
-| Lifecycle policy | Auto-deletion rules |
+| Term             | What                                                    |
+| ---------------- | ------------------------------------------------------- |
+| Registry         | Account-scoped, one per region, auto-created            |
+| Repository       | Named container of one image's versions (`pyawmal/api`) |
+| Image            | OCI bytes; identified by digest (`sha256:abc...`)       |
+| Tag              | Human label pointing to a digest (mutable by default)   |
+| Lifecycle policy | Auto-deletion rules                                     |
 
 Repo URL: `<account>.dkr.ecr.<region>.amazonaws.com/<repo>`.
 
@@ -35,12 +35,14 @@ resource "aws_ecr_repository" "api" {
 ```
 
 ### `image_tag_mutability`
+
 - **MUTABLE** (default) — pushing same tag replaces. Risky in prod.
 - **IMMUTABLE** — pushing existing tag errors. **Production should be IMMUTABLE.**
 
 M0: `MUTABLE` for `:latest` convenience. M16: flip to IMMUTABLE + force commit-SHA tags only.
 
 ### `force_delete = true`
+
 Allows `terraform destroy` to delete repo with images. Dev only.
 
 ---
@@ -62,6 +64,7 @@ resource "aws_ecr_lifecycle_policy" "api" {
 ```
 
 Other selections:
+
 - `tagStatus: "untagged"` — clean dangling (very common).
 - `tagPrefixList: ["pr-"]` + count — delete preview-env images.
 - `countType: "sinceImagePushed"`, `countUnit: "days"` — age-based.
@@ -73,10 +76,12 @@ Rules evaluated in priority order; first match wins.
 ## 5. Image scanning
 
 ### Basic (free)
+
 - `scan_on_push = true` runs CVE scan per push (Clair-based).
 - Findings → console + EventBridge.
 
 ### Enhanced (~$0.09/image-month) — Amazon Inspector
+
 - Continuous re-scan as new CVEs disclosed.
 - Container + OS package scanning.
 
@@ -101,12 +106,14 @@ In CI: `aws-actions/amazon-ecr-login@v2` does both steps.
 ### IAM actions
 
 For **pushing**:
+
 - `ecr:GetAuthorizationToken` (resource `*`)
 - `ecr:BatchCheckLayerAvailability`
 - `ecr:PutImage`
 - `ecr:InitiateLayerUpload` / `UploadLayerPart` / `CompleteLayerUpload`
 
 For **pulling** (ECS task-execution role):
+
 - `ecr:GetAuthorizationToken`
 - `ecr:BatchCheckLayerAvailability`
 - `ecr:GetDownloadUrlForLayer`

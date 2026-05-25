@@ -16,6 +16,7 @@ api.pyawmal.com         (subdomain)
 ```
 
 Resolution path:
+
 1. Resolver checks cache.
 2. If miss: asks root → TLD → authoritative nameservers (Route 53 for us).
 3. Caches the answer for the record's TTL.
@@ -24,18 +25,19 @@ Resolution path:
 
 ## 2. Record types
 
-| Record | Points to | Use |
-|---|---|---|
-| A | IPv4 | `api.pyawmal.com` → `52.x.x.x` |
-| AAAA | IPv6 | Same for IPv6 |
-| CNAME | Another DNS name | `www.pyawmal.com` → `pyawmal.com` |
-| MX | Mail server | Email delivery |
-| TXT | Arbitrary text | DKIM/SPF/DMARC, ownership verification |
-| NS | Authoritative nameservers | At domain apex |
-| SOA | Start of authority | Auto-managed |
-| **Alias** (Route 53) | AWS resource | Killer feature; see §6 |
+| Record               | Points to                 | Use                                    |
+| -------------------- | ------------------------- | -------------------------------------- |
+| A                    | IPv4                      | `api.pyawmal.com` → `52.x.x.x`         |
+| AAAA                 | IPv6                      | Same for IPv6                          |
+| CNAME                | Another DNS name          | `www.pyawmal.com` → `pyawmal.com`      |
+| MX                   | Mail server               | Email delivery                         |
+| TXT                  | Arbitrary text            | DKIM/SPF/DMARC, ownership verification |
+| NS                   | Authoritative nameservers | At domain apex                         |
+| SOA                  | Start of authority        | Auto-managed                           |
+| **Alias** (Route 53) | AWS resource              | Killer feature; see §6                 |
 
 Rules:
+
 - **CNAME at apex is illegal** in standard DNS. Apex must be A/AAAA/Alias.
 - TXT records carry SPF/DKIM/DMARC for email + third-party verifications.
 - NS at apex tells the world which servers are authoritative.
@@ -47,6 +49,7 @@ Rules:
 Every record has a TTL (seconds). Resolvers cache for that long.
 
 Common values:
+
 - 86400 (1 day) — stable.
 - 300 (5 min) — changes occasionally.
 - 60 (1 min) — active migration.
@@ -58,14 +61,19 @@ Common values:
 ## 4. Hosted zones
 
 ### Public
+
 Internet-resolvable. $0.50/zone/month + $0.40/million queries.
+
 ```hcl
 resource "aws_route53_zone" "main" { name = "pyawmal.com" }
 ```
+
 After creation, take the 4 nameservers and update NS records at your registrar.
 
 ### Private
+
 Resolvable only from associated VPC(s). Internal service discovery.
+
 ```hcl
 resource "aws_route53_zone" "internal" {
   name = "internal.pyawmal"
@@ -77,16 +85,16 @@ resource "aws_route53_zone" "internal" {
 
 ## 5. Routing policies
 
-| Policy | Behaviour |
-|---|---|
-| Simple | One or more values, returned randomly |
-| Weighted | Split by weights (canary, A/B) |
-| Latency | Lowest-latency AWS region for client |
-| Geolocation | By country/continent |
-| Geoproximity | Geo with weighted bias |
-| Failover | Primary + secondary, flip on health-check failure |
-| Multi-value answer | Up to 8 healthy targets; client picks |
-| IP-based | By client IP range |
+| Policy             | Behaviour                                         |
+| ------------------ | ------------------------------------------------- |
+| Simple             | One or more values, returned randomly             |
+| Weighted           | Split by weights (canary, A/B)                    |
+| Latency            | Lowest-latency AWS region for client              |
+| Geolocation        | By country/continent                              |
+| Geoproximity       | Geo with weighted bias                            |
+| Failover           | Primary + secondary, flip on health-check failure |
+| Multi-value answer | Up to 8 healthy targets; client picks             |
+| IP-based           | By client IP range                                |
 
 Start with Simple. Weighted = DNS-level canary. Failover = active/passive HA.
 
@@ -95,12 +103,14 @@ Start with Simple. Weighted = DNS-level canary. Failover = active/passive HA.
 ## 6. Alias records — the killer feature
 
 CNAME issues for AWS use:
+
 1. Illegal at apex.
 2. Two lookups (CNAME → A).
 
 **Alias** = Route 53 extension. Looks like A/AAAA to clients; target is an AWS resource (ALB, CloudFront, S3 website, API Gateway, another Route 53 record).
 
 Benefits:
+
 - Works at apex.
 - One lookup.
 - Free (no per-query charge).
@@ -143,6 +153,7 @@ Cost: ~$0.50/check/mo (HTTP); ~$2 (HTTPS w/ string match).
 ## 8. DNS validation for ACM
 
 ACM cert request gives you a CNAME to add:
+
 ```
 _xxx.api.pyawmal.com → _yyy.acm-validations.aws
 ```
@@ -187,6 +198,7 @@ Route 53 supports `aws route53domains register-domain` (`.com` ~$12/yr). Or regi
 No domain in M0. ALB reachable at `pyawmal-dev-alb-1234567.ap-southeast-1.elb.amazonaws.com`, HTTP only.
 
 When we attach a domain (M1):
+
 1. Register or own a domain.
 2. Public hosted zone in Route 53.
 3. Update NS at registrar.

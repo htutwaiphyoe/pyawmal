@@ -17,6 +17,7 @@ Event in repo → GitHub matches workflow → allocates runner → runs steps �
 ## 2. The four nouns
 
 ### Workflow — YAML in `.github/workflows/`
+
 ```yaml
 name: CI
 on: pull_request
@@ -26,16 +27,18 @@ jobs:
 ```
 
 ### Job — runs on one runner
+
 ```yaml
 jobs:
   app:
     runs-on: ubuntu-latest
-    steps: [ ... ]
+    steps: [...]
 ```
 
 Jobs in the same workflow run in **parallel** by default. Use `needs:` to serialize.
 
 ### Step — `run:` (bash) or `uses:` (Action)
+
 ```yaml
 - run: pnpm install --frozen-lockfile
 - uses: aws-actions/configure-aws-credentials@v4
@@ -43,6 +46,7 @@ Jobs in the same workflow run in **parallel** by default. Use `needs:` to serial
 ```
 
 ### Action — reusable step
+
 - **JavaScript actions** — Node code (most common).
 - **Docker actions** — runs in a container.
 - **Composite actions** — wrap several steps.
@@ -54,15 +58,17 @@ Reference: `owner/repo@ref`. **Pin security-critical actions to commit SHAs** (d
 ## 3. Runners
 
 ### GitHub-hosted
-| `runs-on` | What you get |
-|---|---|
-| `ubuntu-latest` | Ubuntu LTS, Node, Docker, AWS CLI |
-| `windows-latest` | Windows + MSVC |
-| `macos-latest` | macOS + Xcode (expensive) |
+
+| `runs-on`        | What you get                      |
+| ---------------- | --------------------------------- |
+| `ubuntu-latest`  | Ubuntu LTS, Node, Docker, AWS CLI |
+| `windows-latest` | Windows + MSVC                    |
+| `macos-latest`   | macOS + Xcode (expensive)         |
 
 Free on public repos; minute budget then per-minute on private.
 
 ### Self-hosted
+
 Your machine, polling GitHub. For GPUs, on-prem access, or budget overruns. We won't use these.
 
 ---
@@ -73,9 +79,9 @@ Your machine, polling GitHub. For GPUs, on-prem access, or budget overruns. We w
 on:
   push: { branches: [main] }
   pull_request: { branches: [main] }
-  schedule: [{ cron: "0 6 * * *" }]
-  workflow_dispatch:             # manual UI button
-  workflow_call:                 # reusable from another workflow
+  schedule: [{ cron: '0 6 * * *' }]
+  workflow_dispatch: # manual UI button
+  workflow_call: # reusable from another workflow
 ```
 
 PRs from **forks** run with restricted permissions (no secrets). `pull_request_target` allows secrets but is usually a security mistake.
@@ -87,7 +93,7 @@ PRs from **forks** run with restricted permissions (no secrets). `pull_request_t
 ```yaml
 permissions:
   contents: read
-  id-token: write              # CRITICAL for OIDC
+  id-token: write # CRITICAL for OIDC
   pull-requests: write
 ```
 
@@ -120,6 +126,7 @@ Step by step:
 2. `configure-aws-credentials` fetches a JWT from that endpoint, audience `sts.amazonaws.com`.
 
 3. GitHub generates the JWT with claims:
+
    ```json
    {
      "iss": "https://token.actions.githubusercontent.com",
@@ -142,6 +149,7 @@ Step by step:
 **No static AWS keys anywhere.**
 
 ### Refining trust by `sub`
+
 ```
 repo:owner/repo:ref:refs/heads/main           # only main
 repo:owner/repo:ref:refs/tags/v*              # only version tags
@@ -178,7 +186,7 @@ Per-repo, 5 GB total, LRU eviction. Reduces CI from ~3 min → ~30 s for typical
 ```yaml
 concurrency:
   group: deploy-dev
-  cancel-in-progress: false      # false for deploys; true for PR checks
+  cancel-in-progress: false # false for deploys; true for PR checks
 ```
 
 Prevents two concurrent merges from racing on the same deploy.
@@ -194,6 +202,7 @@ Prevents two concurrent merges from racing on the same deploy.
 ```
 
 Scopes:
+
 - **Repo secrets** — all workflows in the repo.
 - **Environment secrets** — only with `environment:` declared.
 - **Org secrets** — shared, repo-allowlisted.
@@ -207,6 +216,7 @@ With OIDC: only **one** secret (`AWS_ROLE_ARN`). That's the whole point.
 ## 10. Reusable workflows + composite actions
 
 **Composite action** (share steps) — `.github/actions/setup/action.yml`:
+
 ```yaml
 name: 'Setup'
 runs:
@@ -219,6 +229,7 @@ runs:
     - run: pnpm install --frozen-lockfile
       shell: bash
 ```
+
 Use: `- uses: ./.github/actions/setup`.
 
 **Reusable workflow** — workflow with `on: workflow_call:` called by `uses: ./.github/workflows/deploy.yml`. For multi-service repos.
@@ -230,13 +241,16 @@ We won't need these in M0.
 ## 11. Our M0 workflows
 
 ### `ci.yml` (PR)
+
 Two parallel jobs:
+
 - **app** — install, lint, typecheck, test.
 - **terraform** — assume role via OIDC, run `fmt -check`, `validate`, `plan` (read-only).
 
 Both must be green to merge (branch protection).
 
 ### `deploy.yml` (on push to main)
+
 ```
 1. Checkout
 2. configure-aws-credentials via OIDC

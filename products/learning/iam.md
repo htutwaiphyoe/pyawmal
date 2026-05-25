@@ -14,14 +14,14 @@ IAM is the same: every AWS API call goes through a keycard check. `s3:GetObject`
 
 ## 2. The six concepts
 
-| Term | One-line definition |
-|---|---|
-| **Principal** | *Who* is acting — person, role session, AWS service, or federated identity |
-| **Action** | *What* they want to do — always `service:Operation` (e.g., `s3:GetObject`) |
-| **Resource** | *Which* AWS object — always an ARN |
-| **Condition** | *Under what circumstances* — JSON predicates |
-| **Policy** | A JSON document binding Effect + Action + Resource + Condition |
-| **Trust policy** | A special policy on a Role saying *who is allowed to assume it* |
+| Term             | One-line definition                                                        |
+| ---------------- | -------------------------------------------------------------------------- |
+| **Principal**    | _Who_ is acting — person, role session, AWS service, or federated identity |
+| **Action**       | _What_ they want to do — always `service:Operation` (e.g., `s3:GetObject`) |
+| **Resource**     | _Which_ AWS object — always an ARN                                         |
+| **Condition**    | _Under what circumstances_ — JSON predicates                               |
+| **Policy**       | A JSON document binding Effect + Action + Resource + Condition             |
+| **Trust policy** | A special policy on a Role saying _who is allowed to assume it_            |
 
 ---
 
@@ -75,6 +75,7 @@ Wildcards work: `arn:aws:s3:::pyawmal-*`. Bucket and bucket objects are separate
 - `Condition` uses operators (`StringEquals`, `StringLike`, `IpAddress`, etc.).
 
 **Evaluation:**
+
 1. Start with deny (default).
 2. Look at all policies attached.
 3. Any matching `Deny` → final: **Deny**.
@@ -86,7 +87,7 @@ Wildcards work: `arn:aws:s3:::pyawmal-*`. Bucket and bucket objects are separate
 ## 5. Identity-based vs resource-based policies
 
 **Identity-based** — attached to a User/Role/Group. `Principal` omitted (implicit).
-**Resource-based** — attached to the resource (S3 bucket, KMS key, IAM Role *trust policy*). `Principal` field is required.
+**Resource-based** — attached to the resource (S3 bucket, KMS key, IAM Role _trust policy_). `Principal` field is required.
 
 Effective permission = union of identity + resource policies, with any explicit `Deny` winning.
 
@@ -98,7 +99,7 @@ Cross-account access usually needs both: source account grants the call via iden
 
 **IAM User** = persistent identity with long-lived credentials (access key + secret). **Almost never the right answer in production** — leaks happen.
 
-**IAM Role** = identity *without* credentials. Principals call **AWS STS** (Security Token Service) to *assume* the role and get **temporary credentials** valid 15 min – 12 h.
+**IAM Role** = identity _without_ credentials. Principals call **AWS STS** (Security Token Service) to _assume_ the role and get **temporary credentials** valid 15 min – 12 h.
 
 ```
 Original principal             STS                Temporary credentials
@@ -125,6 +126,7 @@ A Role has both. They're orthogonal.
 **Trust policy** — exactly one resource-based policy answering "who is allowed to assume me?"
 
 Example for our ECS task role:
+
 ```json
 {
   "Effect": "Allow",
@@ -144,6 +146,7 @@ Example for our ECS task role:
 ### Setup (Task 30, once)
 
 1. Register GitHub as OIDC provider:
+
 ```hcl
 resource "aws_iam_openid_connect_provider" "github" {
   url             = "https://token.actions.githubusercontent.com"
@@ -153,14 +156,19 @@ resource "aws_iam_openid_connect_provider" "github" {
 ```
 
 2. Create a role whose trust policy allows the OIDC provider, restricted by JWT claims:
+
 ```json
 {
   "Effect": "Allow",
-  "Principal": { "Federated": "arn:aws:iam::123:oidc-provider/token.actions.githubusercontent.com" },
+  "Principal": {
+    "Federated": "arn:aws:iam::123:oidc-provider/token.actions.githubusercontent.com"
+  },
   "Action": "sts:AssumeRoleWithWebIdentity",
   "Condition": {
     "StringEquals": { "token.actions.githubusercontent.com:aud": "sts.amazonaws.com" },
-    "StringLike":   { "token.actions.githubusercontent.com:sub": "repo:hwp/pyawmal:ref:refs/heads/main" }
+    "StringLike": {
+      "token.actions.githubusercontent.com:sub": "repo:hwp/pyawmal:ref:refs/heads/main"
+    }
   }
 }
 ```
@@ -172,6 +180,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 3. Workflow declares `permissions: id-token: write`.
 4. `configure-aws-credentials` action requests a JWT from GitHub.
 5. GitHub generates and signs:
+
 ```json
 {
   "iss": "https://token.actions.githubusercontent.com",
@@ -181,6 +190,7 @@ resource "aws_iam_openid_connect_provider" "github" {
   "exp": 1716543200
 }
 ```
+
 6. Action calls `sts:AssumeRoleWithWebIdentity` with the JWT.
 7. STS verifies JWT signature against GitHub's public keys.
 8. STS evaluates trust-policy conditions against JWT claims.
@@ -194,7 +204,7 @@ resource "aws_iam_openid_connect_provider" "github" {
 
 ## 9. `iam:PassRole` — the trap
 
-When service A wants to *use* role B on your behalf, your principal needs `iam:PassRole` on role B.
+When service A wants to _use_ role B on your behalf, your principal needs `iam:PassRole` on role B.
 
 When GitHub Actions deploys a new ECS task definition, ECS will use the task role for the running task. **GitHub Actions must have `iam:PassRole` on the task role**, or:
 
@@ -203,21 +213,22 @@ AccessDenied: not authorized to perform: iam:PassRole on resource:
 arn:aws:iam::123:role/pyawmal-dev-task
 ```
 
-Mental model: "use this role" is itself a permission. You're not just creating a task — you're *passing* a role to it. The control plane checks.
+Mental model: "use this role" is itself a permission. You're not just creating a task — you're _passing_ a role to it. The control plane checks.
 
 ---
 
 ## 10. Our M0 roles, mapped
 
-| Role | Trust (who can assume) | Permissions |
-|---|---|---|
-| `pyawmal-dev-task-exec` | `ecs-tasks.amazonaws.com` | Pull from ECR, write to CloudWatch, read DATABASE_URL secret |
-| `pyawmal-dev-task` | `ecs-tasks.amazonaws.com` | Nothing in M0 (M2+: S3 access etc.) |
+| Role                         | Trust (who can assume)                                            | Permissions                                                        |
+| ---------------------------- | ----------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `pyawmal-dev-task-exec`      | `ecs-tasks.amazonaws.com`                                         | Pull from ECR, write to CloudWatch, read DATABASE_URL secret       |
+| `pyawmal-dev-task`           | `ecs-tasks.amazonaws.com`                                         | Nothing in M0 (M2+: S3 access etc.)                                |
 | `pyawmal-dev-github-actions` | GitHub OIDC, restricted to `repo:hwp/pyawmal:ref:refs/heads/main` | ECR push, ECS update-service, `iam:PassRole` on the two task roles |
 
 **Why two task roles?**
-- **Task execution role** — used by the ECS *agent* at task startup (pull image, fetch secrets, configure logs). Your code never sees these.
-- **Task role** — used by your *application code* at runtime. The AWS SDK auto-discovers via the ECS metadata endpoint.
+
+- **Task execution role** — used by the ECS _agent_ at task startup (pull image, fetch secrets, configure logs). Your code never sees these.
+- **Task role** — used by your _application code_ at runtime. The AWS SDK auto-discovers via the ECS metadata endpoint.
 
 Least-privilege: app code doesn't need ECR pull; the agent doesn't need S3 write.
 

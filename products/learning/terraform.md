@@ -32,43 +32,51 @@ Each `terraform apply` is one cycle: read config → read state → query cloud 
 ## 2. HCL — the configuration language
 
 ### Resources
+
 ```hcl
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
 }
 ```
+
 Format: `resource "<TYPE>" "<NAME>"`. Reference via `aws_vpc.main.id`.
 
 ### Data sources (read-only lookups)
+
 ```hcl
 data "aws_caller_identity" "current" {}
 ```
 
 ### Providers (plugins)
+
 ```hcl
 provider "aws" { region = "ap-southeast-1" }
 ```
 
 ### Variables
+
 ```hcl
 variable "env" { type = string, default = "dev" }
 # Used as: var.env
 ```
 
 ### Outputs
+
 ```hcl
 output "alb_dns" { value = aws_lb.this.dns_name }
 # Read via: terraform output -raw alb_dns
 ```
 
 ### Locals
+
 ```hcl
 locals { name_prefix = "${var.project}-${var.env}" }
 # Used as: local.name_prefix
 ```
 
 ### References create dependencies
+
 `aws_subnet.public { vpc_id = aws_vpc.main.id }` tells Terraform: create the VPC first. You never specify order explicitly; the dependency graph is inferred.
 
 ---
@@ -80,11 +88,13 @@ locals { name_prefix = "${var.project}-${var.env}" }
 **Why it exists:** cloud APIs have no "list everything I own" endpoint. Without state, Terraform couldn't know whether a resource already exists or needs creation.
 
 **State holds:**
+
 1. Resource address → cloud ID mapping.
 2. Last-observed attributes.
 3. Metadata (Terraform version, lineage UUID, serial number).
 
 **State is sacred:**
+
 - Lose state → infrastructure still runs, but Terraform has no idea what's yours.
 - Corrupt state → next apply is incoherent.
 - Secrets land in state (RDS passwords, random_password, OAuth client secrets) → state must be encrypted.
@@ -103,13 +113,14 @@ terraform {
 }
 ```
 
-| Backend | When |
-|---|---|
-| `local` | Solo experiments only — no locking, no sharing |
-| `s3` + DynamoDB | Team standard — encrypted, versioned, locked |
-| Terraform Cloud / HCP | Paid managed; UI, RBAC, remote runs |
+| Backend               | When                                           |
+| --------------------- | ---------------------------------------------- |
+| `local`               | Solo experiments only — no locking, no sharing |
+| `s3` + DynamoDB       | Team standard — encrypted, versioned, locked   |
+| Terraform Cloud / HCP | Paid managed; UI, RBAC, remote runs            |
 
 ### Locking
+
 DynamoDB conditional PUT for `LockID=<state-key>`. Second apply blocks until the first finishes. **The bootstrap config (Task 20) creates the bucket and lock table using local state**, then later environments use them as their remote backend.
 
 ---
@@ -137,20 +148,22 @@ terraform state show <addr>
   -/+ resource "aws_db_instance" "main" { # REPLACE (destroy then create)
 ```
 
-| Symbol | Meaning | Safe? |
-|---|---|---|
-| `+` | Create | Yes |
-| `~` | In-place update | Usually yes |
-| `-` | Destroy | Read carefully |
-| `-/+` | Destroy then create | **Always inspect — possible downtime/data loss** |
+| Symbol | Meaning             | Safe?                                            |
+| ------ | ------------------- | ------------------------------------------------ |
+| `+`    | Create              | Yes                                              |
+| `~`    | In-place update     | Usually yes                                      |
+| `-`    | Destroy             | Read carefully                                   |
+| `-/+`  | Destroy then create | **Always inspect — possible downtime/data loss** |
 
 ### Saved plans
+
 ```bash
 terraform plan -out=tfplan
 # review carefully
 terraform apply tfplan
 ```
-Guarantees you apply *exactly* what you reviewed.
+
+Guarantees you apply _exactly_ what you reviewed.
 
 ---
 
@@ -166,11 +179,11 @@ resource "aws_db_instance" "main" {
 }
 ```
 
-| Flag | Effect |
-|---|---|
-| `create_before_destroy = true` | For replacements, create new first then destroy old. Zero downtime; uniqueness gotchas. |
-| `prevent_destroy = true` | Refuse to destroy. Critical for stateful resources (RDS, S3 with data). |
-| `ignore_changes = [attr]` | Don't fight reality on this attribute. Common for `task_definition` on ECS service (CI manages it). |
+| Flag                           | Effect                                                                                              |
+| ------------------------------ | --------------------------------------------------------------------------------------------------- |
+| `create_before_destroy = true` | For replacements, create new first then destroy old. Zero downtime; uniqueness gotchas.             |
+| `prevent_destroy = true`       | Refuse to destroy. Critical for stateful resources (RDS, S3 with data).                             |
+| `ignore_changes = [attr]`      | Don't fight reality on this attribute. Common for `task_definition` on ECS service (CI manages it). |
 
 ---
 
@@ -193,7 +206,7 @@ resource "aws_lb" "alb" {
 
 **Sources:** local path, public registry, git URL.
 
-**Design rule:** one module = one responsibility. VPC module creates VPC/subnets/routing — *not* RDS or IAM (those are separate modules).
+**Design rule:** one module = one responsibility. VPC module creates VPC/subnets/routing — _not_ RDS or IAM (those are separate modules).
 
 ---
 
@@ -202,19 +215,20 @@ resource "aws_lb" "alb" {
 Drift = reality changed outside Terraform (console click, AWS auto-rotation, autoscaling adjustment). Next `plan` shows the diff and offers to revert.
 
 Strategies:
+
 1. **Never click the console** for TF-managed resources.
 2. `terraform refresh` updates state without changing infra (folded into `plan` now).
 3. `terraform import <addr> <id>` brings existing cloud resources into state.
-4. `lifecycle { ignore_changes = [...] }` for fields that *should* drift.
+4. `lifecycle { ignore_changes = [...] }` for fields that _should_ drift.
 
 ---
 
 ## 8. Workspaces vs env directories
 
-| Pattern | Pros | Cons |
-|---|---|---|
-| **Workspaces** (`terraform workspace new staging`) | One config, less duplication | Easy to apply to wrong env — huge blast radius |
-| **Env directories** (`infra/envs/dev`, `infra/envs/prod`) | Explicit, safer, CI runs in specific dir | Some duplication (modules mostly eliminate) |
+| Pattern                                                   | Pros                                     | Cons                                           |
+| --------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------- |
+| **Workspaces** (`terraform workspace new staging`)        | One config, less duplication             | Easy to apply to wrong env — huge blast radius |
+| **Env directories** (`infra/envs/dev`, `infra/envs/prod`) | Explicit, safer, CI runs in specific dir | Some duplication (modules mostly eliminate)    |
 
 Use env directories. The safety beats the duplication.
 

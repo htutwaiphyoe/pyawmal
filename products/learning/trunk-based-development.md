@@ -10,12 +10,13 @@ One long-lived branch (`main`), short-lived feature branches. `main` is **always
 
 ```
 Trunk-based:           main ──────────────────────────────────
-                       feat/x  └──┐         ┌──── 
+                       feat/x  └──┐         ┌────
                        feat/y      └──┐  ┌──
                                       └──┘
 ```
 
 Compare to GitFlow:
+
 ```
 GitFlow:               main    ─────●─────●─────●─────
                        develop ─●───●─●───●─●───●─
@@ -28,6 +29,7 @@ GitFlow:               main    ─────●─────●────�
 ## 2. Why GitFlow falls over for SaaS
 
 GitFlow (Vincent Driessen, 2010) used `main`, `develop`, `feature/*`, `release/*`, `hotfix/*`. Problems:
+
 - Long-lived `develop` accumulates conflicts.
 - Release branches add ceremony.
 - Doesn't fit continuous deployment.
@@ -41,14 +43,16 @@ The author retracted his recommendation in 2020 for web-style apps.
 ## 3. The three practices
 
 ### A. Short-lived feature branches
-| Lifetime | Verdict |
-|---|---|
-| < 1 day | Ideal |
-| 1-3 days | Fine |
-| 1 week | Smell |
+
+| Lifetime | Verdict      |
+| -------- | ------------ |
+| < 1 day  | Ideal        |
+| 1-3 days | Fine         |
+| 1 week   | Smell        |
 | > 1 week | Anti-pattern |
 
 ### B. `main` always green
+
 - CI gates (lint, typecheck, tests, terraform plan).
 - Branch protection: PRs only, required checks, required reviews.
 - After merge: auto-deploy.
@@ -56,6 +60,7 @@ The author retracted his recommendation in 2020 for web-style apps.
 If `main` breaks, fixing it is the team's top priority.
 
 ### C. Feature flags for incomplete work
+
 Merge unfinished features behind a flag set to `off`. Iterate over PRs. Roll out: staff → beta → all. Delete flag after rollout.
 
 We won't need flags until M3; the capability lives in architecture from M1.
@@ -64,12 +69,12 @@ We won't need flags until M3; the capability lives in architecture from M1.
 
 ## 4. Branch lifetimes (concrete targets)
 
-| Phase | Time bound |
-|---|---|
-| Push first commit | Day 1 |
-| Open PR (even WIP) | Day 1 |
-| Reviewer responds | < 4h |
-| Merge | < 3 days from cut |
+| Phase              | Time bound        |
+| ------------------ | ----------------- |
+| Push first commit  | Day 1             |
+| Open PR (even WIP) | Day 1             |
+| Reviewer responds  | < 4h              |
+| Merge              | < 3 days from cut |
 
 Going past 3 days → branch too big / review too slow / CI too slow. Diagnose.
 
@@ -85,12 +90,12 @@ Going past 3 days → branch too big / review too slow / CI too slow. Diagnose.
 
 ## 6. CI gates — must be fast + trusted
 
-| Gate | Target |
-|---|---|
-| Lint | < 30s |
-| Typecheck | < 1 min |
-| Unit tests | < 2 min |
-| Integration | < 5 min |
+| Gate              | Target   |
+| ----------------- | -------- |
+| Lint              | < 30s    |
+| Typecheck         | < 1 min  |
+| Unit tests        | < 2 min  |
+| Integration       | < 5 min  |
 | Total PR feedback | < 10 min |
 
 Slow CI = momentum dies. Invest in caches (Task 31's pnpm + turbo cache).
@@ -102,14 +107,17 @@ Slow CI = momentum dies. Invest in caches (Task 31's pnpm + turbo cache).
 ## 7. Release cadence
 
 ### Continuous deployment (our M0)
+
 Every merge to `main` → production. No human approval.
 
 Works when:
+
 - CI is strong.
 - Rollback is fast.
 - Feature flags hide unfinished work.
 
 ### Continuous delivery + manual promotion
+
 Every merge → staging. Human clicks "promote." For regulated industries, gnarly migrations.
 
 M16 may add this tier.
@@ -129,7 +137,7 @@ If you want `hotfix/*`, you've probably let `main` accumulate undeployed changes
 ## 9. When TBD doesn't fit
 
 - Versioned software with parallel supported versions.
-- Mobile *binary* releases (server can still be TBD).
+- Mobile _binary_ releases (server can still be TBD).
 - Regulatory environments with formal ceremony.
 - Risk-averse cultures (transition first via feature-flag investment).
 
@@ -160,6 +168,7 @@ gh pr merge --squash --delete-branch
 ```
 
 Branch protection on `main`:
+
 - Require PR.
 - Require status checks.
 - Require ≥1 approving review.
@@ -170,13 +179,13 @@ Branch protection on `main`:
 
 ## 11. Common objections + answers
 
-| Objection | Answer |
-|---|---|
-| Small PRs slow delivery (review overhead) | Backwards — big PRs sit for days; small PRs reviewed in minutes |
-| Need `develop` as a safety buffer | That buffer becomes a bottleneck; fix `main` quality with CI + flags |
-| Feature flags are tech debt | Short-lived flags < long-lived branches (less hidden state); delete after rollout |
-| Big refactors don't fit | Land as additive PR sequence: add new alongside old → migrate caller A → migrate caller B → delete old |
-| Long-lived experiments | Personal/fork branch; only merge when promoted to feature |
+| Objection                                  | Answer                                                                                                       |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------ |
+| Small PRs slow delivery (review overhead)  | Backwards — big PRs sit for days; small PRs reviewed in minutes                                              |
+| Need `develop` as a safety buffer          | That buffer becomes a bottleneck; fix `main` quality with CI + flags                                         |
+| Feature flags are tech debt                | Short-lived flags < long-lived branches (less hidden state); delete after rollout                            |
+| Big refactors don't fit                    | Land as additive PR sequence: add new alongside old → migrate caller A → migrate caller B → delete old       |
+| Long-lived experiments                     | Personal/fork branch; only merge when promoted to feature                                                    |
 | Rollbacks scarier without release branches | `git revert <merge-sha>` + push, or redeploy previous ECS task def revision — both faster than hotfix branch |
 
 ---
@@ -189,6 +198,7 @@ Branch protection on `main`:
 - Conventional Commits + commitlint (Task 5) → parseable history for changelogs.
 
 When M3+ adds feature flags:
+
 - Merge incomplete behind `pyawmal.<feature>` flag, default off.
 - Roll out via flag service (LaunchDarkly, ConfigCat, or simple Postgres table).
 - Watch metrics; ramp 1% → 10% → 100%; delete flag.

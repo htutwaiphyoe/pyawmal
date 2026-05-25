@@ -38,9 +38,10 @@ export ENV=dev
 
 ### Task 1: Initialize pnpm monorepo
 
-*Why:* pnpm workspaces let multiple packages in one repo depend on each other locally without publishing. This is the foundation every later task builds on.
+_Why:_ pnpm workspaces let multiple packages in one repo depend on each other locally without publishing. This is the foundation every later task builds on.
 
 **Files:**
+
 - Create: `.nvmrc`, `.gitignore`, `package.json`, `pnpm-workspace.yaml`, `README.md`
 
 - [ ] **Step 1: Create `.nvmrc`**
@@ -88,8 +89,8 @@ coverage/
 
 ```yaml
 packages:
-  - "apps/*"
-  - "packages/*"
+  - 'apps/*'
+  - 'packages/*'
 ```
 
 - [ ] **Step 5: Create minimal `README.md`**
@@ -119,7 +120,7 @@ git commit -m "feat(m0): initialize pnpm monorepo"
 
 ### Task 2: Add Turborepo
 
-*Why:* Turborepo caches builds/tests/lints across the monorepo so we don't re-run unchanged work. Speeds up CI dramatically once the repo grows.
+_Why:_ Turborepo caches builds/tests/lints across the monorepo so we don't re-run unchanged work. Speeds up CI dramatically once the repo grows.
 
 **Files:** Create `turbo.json`. Modify `package.json` (already references turbo).
 
@@ -164,7 +165,7 @@ git commit -m "feat(m0): add Turborepo"
 
 ### Task 3: TypeScript base config
 
-*Why:* All TypeScript packages should share one strict base config so type-checking is consistent everywhere.
+_Why:_ All TypeScript packages should share one strict base config so type-checking is consistent everywhere.
 
 **Files:** Create `tsconfig.base.json`.
 
@@ -207,7 +208,7 @@ git commit -m "feat(m0): add strict TypeScript base config"
 
 ### Task 4: ESLint + Prettier
 
-*Why:* Catches bugs at edit-time (eslint) and removes style debates (prettier). Both run in CI to enforce on PRs.
+_Why:_ Catches bugs at edit-time (eslint) and removes style debates (prettier). Both run in CI to enforce on PRs.
 
 **Files:** Create `.eslintrc.json`, `.prettierrc`, `.prettierignore`. Modify root `package.json`.
 
@@ -225,11 +226,7 @@ pnpm add -D -w eslint@8 @typescript-eslint/parser@7 @typescript-eslint/eslint-pl
   "parser": "@typescript-eslint/parser",
   "parserOptions": { "ecmaVersion": 2022, "sourceType": "module" },
   "plugins": ["@typescript-eslint"],
-  "extends": [
-    "eslint:recommended",
-    "plugin:@typescript-eslint/recommended",
-    "prettier"
-  ],
+  "extends": ["eslint:recommended", "plugin:@typescript-eslint/recommended", "prettier"],
   "rules": {
     "@typescript-eslint/no-unused-vars": ["error", { "argsIgnorePattern": "^_" }]
   },
@@ -299,7 +296,7 @@ git commit -m "feat(m0): add ESLint and Prettier"
 
 ### Task 5: Commitlint + Husky
 
-*Why:* Enforces the Conventional Commits format (`feat:`, `fix:`, `chore:`) so commit history is parseable for changelogs and release tooling later.
+_Why:_ Enforces the Conventional Commits format (`feat:`, `fix:`, `chore:`) so commit history is parseable for changelogs and release tooling later.
 
 **Files:** Create `commitlint.config.js`, `.husky/commit-msg`.
 
@@ -360,7 +357,7 @@ git commit -m "feat(m0): enforce conventional commits via commitlint + husky"
 
 ### Task 6: Scaffold `apps/api` (Fastify)
 
-*Why:* Fastify is the API framework — faster than Express and TypeScript-friendly. This task gets a server that boots and serves nothing yet.
+_Why:_ Fastify is the API framework — faster than Express and TypeScript-friendly. This task gets a server that boots and serves nothing yet.
 
 **Files:** Create `apps/api/{package.json,tsconfig.json,src/server.ts,src/index.ts}`.
 
@@ -449,7 +446,7 @@ git commit -m "feat(m0): scaffold Fastify api app"
 
 ### Task 7: Env validation with zod
 
-*Why:* The app should refuse to start with missing or invalid environment variables — better to fail fast at boot than to crash 10 minutes into a request.
+_Why:_ The app should refuse to start with missing or invalid environment variables — better to fail fast at boot than to crash 10 minutes into a request.
 
 **Files:** Create `apps/api/src/env.ts`, `apps/api/.env.example`. Modify `apps/api/src/index.ts`.
 
@@ -537,7 +534,7 @@ git commit -m "feat(m0): validate env vars at boot with zod"
 
 ### Task 8: TDD `/health` endpoint
 
-*Why:* This is the endpoint the ALB hits to decide whether the task is healthy. Test-first because we want to know exactly what shape the response is in before writing it.
+_Why:_ This is the endpoint the ALB hits to decide whether the task is healthy. Test-first because we want to know exactly what shape the response is in before writing it.
 
 **Files:** Create `apps/api/src/routes/health.ts`, `apps/api/src/routes/health.test.ts`. Modify `apps/api/src/server.ts`.
 
@@ -631,7 +628,7 @@ git commit -m "feat(m0): add /health endpoint with test"
 
 ### Task 9: Structured logging + request IDs
 
-*Why:* When the service is running in production we'll be reading logs in CloudWatch. Structured JSON logs are queryable; request IDs let you trace a single request across all log lines.
+_Why:_ When the service is running in production we'll be reading logs in CloudWatch. Structured JSON logs are queryable; request IDs let you trace a single request across all log lines.
 
 **Files:** Modify `apps/api/src/server.ts`.
 
@@ -648,9 +645,7 @@ export function buildServer(): FastifyInstance {
   const app = Fastify({
     logger: {
       level: process.env.LOG_LEVEL ?? 'info',
-      ...(process.env.NODE_ENV === 'development'
-        ? { transport: { target: 'pino-pretty' } }
-        : {}),
+      ...(process.env.NODE_ENV === 'development' ? { transport: { target: 'pino-pretty' } } : {}),
     },
     genReqId: () => randomUUID(),
   });
@@ -686,7 +681,7 @@ git commit -m "feat(m0): structured JSON logs with request IDs"
 
 ### Task 10: Graceful shutdown
 
-*Why:* When ECS rotates a task, it sends SIGTERM. If the server exits immediately, in-flight requests fail. Graceful shutdown drains them first.
+_Why:_ When ECS rotates a task, it sends SIGTERM. If the server exits immediately, in-flight requests fail. Graceful shutdown drains them first.
 
 **Files:** Modify `apps/api/src/index.ts`.
 
@@ -746,7 +741,7 @@ git commit -m "feat(m0): graceful shutdown on SIGTERM/SIGINT"
 
 ### Task 11: Dockerfile (multi-stage)
 
-*Why:* Multi-stage builds keep the production image small (no dev deps, no source). Smaller image = faster cold starts = faster deploys.
+_Why:_ Multi-stage builds keep the production image small (no dev deps, no source). Smaller image = faster cold starts = faster deploys.
 
 **Files:** Create `apps/api/Dockerfile`, `apps/api/.dockerignore`.
 
@@ -826,7 +821,7 @@ git commit -m "feat(m0): multi-stage Dockerfile for api"
 
 ### Task 12: Scaffold `packages/db` (Prisma)
 
-*Why:* All database access goes through one Prisma client shared across packages. Centralising it means schema changes happen in one place.
+_Why:_ All database access goes through one Prisma client shared across packages. Centralising it means schema changes happen in one place.
 
 **Files:** Create `packages/db/{package.json,tsconfig.json,prisma/schema.prisma,src/index.ts}`.
 
@@ -918,7 +913,7 @@ git commit -m "feat(m0): scaffold @pyawmal/db with Prisma"
 
 ### Task 13: Wire Prisma into `apps/api`
 
-*Why:* The api needs a Prisma client to talk to the database. We expose it on the Fastify instance so any route can use it via `app.prisma`.
+_Why:_ The api needs a Prisma client to talk to the database. We expose it on the Fastify instance so any route can use it via `app.prisma`.
 
 **Files:** Modify `apps/api/package.json`, `apps/api/src/server.ts`. Create `apps/api/src/plugins/db.ts`.
 
@@ -937,13 +932,17 @@ import fp from 'fastify-plugin';
 import { getPrisma, type PrismaClient } from '@pyawmal/db';
 
 declare module 'fastify' {
-  interface FastifyInstance { prisma: PrismaClient }
+  interface FastifyInstance {
+    prisma: PrismaClient;
+  }
 }
 
 export const dbPlugin = fp(async (app) => {
   const prisma = getPrisma();
   app.decorate('prisma', prisma);
-  app.addHook('onClose', async () => { await prisma.$disconnect(); });
+  app.addHook('onClose', async () => {
+    await prisma.$disconnect();
+  });
 });
 ```
 
@@ -973,7 +972,7 @@ git commit -m "feat(m0): wire Prisma client into api via plugin"
 
 ### Task 14: `/db-ping` endpoint
 
-*Why:* Confirms end-to-end connectivity from the api task to RDS. We'll hit this after every deploy.
+_Why:_ Confirms end-to-end connectivity from the api task to RDS. We'll hit this after every deploy.
 
 **Files:** Create `apps/api/src/routes/db-ping.ts`. Modify `apps/api/src/server.ts`.
 
@@ -1017,7 +1016,7 @@ git commit -m "feat(m0): add /db-ping endpoint"
 
 ### Task 15: docker-compose for local Postgres
 
-*Why:* Local dev mirrors production (same Postgres major version). One command spins up a local DB.
+_Why:_ Local dev mirrors production (same Postgres major version). One command spins up a local DB.
 
 **Files:** Create `docker-compose.yml`. Create `apps/api/.env.local`.
 
@@ -1031,11 +1030,11 @@ services:
       POSTGRES_USER: pyawmal
       POSTGRES_PASSWORD: pyawmal
       POSTGRES_DB: pyawmal
-    ports: ["5432:5432"]
+    ports: ['5432:5432']
     volumes:
       - pyawmal-pg:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pyawmal"]
+      test: ['CMD-SHELL', 'pg_isready -U pyawmal']
       interval: 5s
       timeout: 5s
       retries: 5
@@ -1083,7 +1082,7 @@ git commit -m "feat(m0): docker-compose for local Postgres"
 
 ### Task 16: Scaffold `apps/web` (Next.js)
 
-*Why:* The frontend is a placeholder in M0 but the package needs to exist so Phase 7 CI/CD can build it.
+_Why:_ The frontend is a placeholder in M0 but the package needs to exist so Phase 7 CI/CD can build it.
 
 **Files:** Create `apps/web/{package.json,tsconfig.json,next.config.mjs,app/layout.tsx,app/page.tsx}`.
 
@@ -1165,8 +1164,13 @@ git commit -m "feat(m0): scaffold Next.js web app"
 - [ ] **Step 1: Create `apps/web/app/globals.css`**
 
 ```css
-* { box-sizing: border-box; }
-body { margin: 0; font-family: system-ui, sans-serif; }
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
 ```
 
 - [ ] **Step 2: Create `apps/web/app/layout.tsx`**
@@ -1217,7 +1221,7 @@ git commit -m "feat(m0): placeholder home page for web app"
 
 ### Task 18: Scaffold `packages/shared`
 
-*Why:* This package holds zod schemas / TypeScript types shared between frontend and backend. In M0 it's empty; M1 fills it with auth request/response schemas.
+_Why:_ This package holds zod schemas / TypeScript types shared between frontend and backend. In M0 it's empty; M1 fills it with auth request/response schemas.
 
 **Files:** Create `packages/shared/{package.json,tsconfig.json,src/index.ts}`.
 
@@ -1327,7 +1331,7 @@ git commit -m "feat(m0): wire shared package into api and web"
 
 ### Task 20: Terraform state backend (one-time bootstrap)
 
-*Why:* Terraform state needs to live somewhere durable so multiple developers / CI can share it. An S3 bucket + DynamoDB lock table is the standard pattern. This task uses **local state** to provision those resources, then later environments use the bucket as their **remote backend**.
+_Why:_ Terraform state needs to live somewhere durable so multiple developers / CI can share it. An S3 bucket + DynamoDB lock table is the standard pattern. This task uses **local state** to provision those resources, then later environments use the bucket as their **remote backend**.
 
 **Files:** Create `infra/bootstrap/{main,providers,variables}.tf`.
 
@@ -2038,7 +2042,7 @@ git commit -m "feat(m0): ALB + target group + HTTP listener"
 
 ### Task 30: GitHub OIDC provider + Actions role
 
-*Why:* OIDC lets GitHub Actions assume an AWS role without any long-lived AWS keys. The role's trust policy restricts which repo/branch can assume it.
+_Why:_ OIDC lets GitHub Actions assume an AWS role without any long-lived AWS keys. The role's trust policy restricts which repo/branch can assume it.
 
 **Files:** Create `infra/envs/dev/github-oidc.tf`.
 
@@ -2296,6 +2300,7 @@ git push origin main
 - [ ] **Step 2: Watch the Actions tab on GitHub**
 
 Expected timeline:
+
 - Install + checks: ~2 min
 - Build + push image: ~3 min
 - ECS update + wait: ~2 min
@@ -2345,6 +2350,7 @@ M0 is shipped. Next milestone: M1 — Authentication.
 ## Cost note
 
 Expected monthly AWS cost for M0 alone (Singapore, dev usage):
+
 - ECS Fargate (256 CPU / 512 MB, 1 task): ~$9
 - ALB: ~$16
 - RDS t4g.micro: ~$13 (free tier first 12 months)

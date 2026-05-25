@@ -12,14 +12,14 @@ Env vars are visible (in `ps`, memory dumps, accidental logs) and don't rotate. 
 
 ## 2. Secrets Manager vs SSM Parameter Store
 
-| | Secrets Manager | Parameter Store |
-|---|---|---|
-| Purpose | Secrets with rotation | Config (SecureString supports secrets) |
-| Auto-rotation | First-class, Lambda templates | Not built-in |
-| Cost | $0.40/secret/month + $0.05/10k API | Standard tier free; Advanced $0.05/param/mo |
-| Max size | 64 KB | 4-8 KB |
-| Cross-region replication | Native | Manual |
-| Resource policies | Yes | Advanced only |
+|                          | Secrets Manager                    | Parameter Store                             |
+| ------------------------ | ---------------------------------- | ------------------------------------------- |
+| Purpose                  | Secrets with rotation              | Config (SecureString supports secrets)      |
+| Auto-rotation            | First-class, Lambda templates      | Not built-in                                |
+| Cost                     | $0.40/secret/month + $0.05/10k API | Standard tier free; Advanced $0.05/param/mo |
+| Max size                 | 64 KB                              | 4-8 KB                                      |
+| Cross-region replication | Native                             | Manual                                      |
+| Resource policies        | Yes                                | Advanced only                               |
 
 **Use Secrets Manager** for things that rotate or are genuinely secret. **Use Parameter Store** for non-secret config + cheap secrets that don't rotate.
 
@@ -47,9 +47,11 @@ Custom labels allowed (`STAGING`, `CANARY`).
 ## 4. Encryption (KMS)
 
 ### `aws/secretsmanager` (AWS-managed)
+
 Free, can't grant cross-account, can't audit.
 
 ### Customer-managed KMS key (CMK)
+
 ~$1/mo, fine-grained policies, required for cross-account, CloudTrail-audited.
 
 M0: AWS-managed. M16: customer-managed for prod.
@@ -59,14 +61,17 @@ M0: AWS-managed. M16: customer-managed for prod.
 ## 5. Rotation
 
 ### Manual
+
 ```bash
 aws secretsmanager put-secret-value \
   --secret-id pyawmal/dev/DATABASE_URL \
   --secret-string "..."
 ```
+
 New version → AWSCURRENT; old → AWSPREVIOUS.
 
 ### Automatic (Lambda + schedule)
+
 ```hcl
 resource "aws_secretsmanager_secret_rotation" "db" {
   secret_id           = aws_secretsmanager_secret.db_url.id
@@ -102,6 +107,7 @@ Useful conditions: `aws:SourceVpce`, `aws:SourceIp`, `secretsmanager:VersionStag
 ## 7. ECS integration
 
 Task definition:
+
 ```jsonc
 "secrets": [
   { "name": "DATABASE_URL", "valueFrom": "arn:aws:secretsmanager:...:secret:pyawmal/dev/DATABASE_URL-xY8c" }
@@ -109,6 +115,7 @@ Task definition:
 ```
 
 At task startup:
+
 1. ECS agent reads task def.
 2. For each `secrets[]` entry, calls `GetSecretValue` using **execution role**.
 3. Value injected as env var.
@@ -117,6 +124,7 @@ At task startup:
 Application code is identical to using `environment[]`. The win: secret value never appears in task definition JSON (visible to anyone with `ecs:DescribeTaskDefinition`).
 
 For JSON-valued secrets, sub-key syntax:
+
 ```
 "valueFrom": "<secret-arn>:host::"
 ```

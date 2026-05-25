@@ -12,21 +12,21 @@ ALB = reverse proxy with HTTP intelligence. Clients see only the ALB; the ALB pi
 Client → ALB → backend ECS tasks
 ```
 
-For the client, the ALB *is* your service.
+For the client, the ALB _is_ your service.
 
 ---
 
 ## 2. L4 vs L7 — NLB vs ALB
 
-| | NLB | ALB |
-|---|---|---|
-| OSI layer | 4 (TCP/UDP) | 7 (HTTP/HTTPS) |
-| Inspects HTTP? | No | Yes |
-| Path/host routing | No | Yes |
-| TLS termination | Pass-through | Terminates |
-| Sticky sessions | By connection | By cookie |
-| Protocols | TCP, UDP | HTTP, HTTPS, gRPC, WS |
-| Static IPs | Yes | No (DNS only) |
+|                   | NLB           | ALB                   |
+| ----------------- | ------------- | --------------------- |
+| OSI layer         | 4 (TCP/UDP)   | 7 (HTTP/HTTPS)        |
+| Inspects HTTP?    | No            | Yes                   |
+| Path/host routing | No            | Yes                   |
+| TLS termination   | Pass-through  | Terminates            |
+| Sticky sessions   | By connection | By cookie             |
+| Protocols         | TCP, UDP      | HTTP, HTTPS, gRPC, WS |
+| Static IPs        | Yes           | No (DNS only)         |
 
 We use ALB. NLB only when needing lowest latency, raw TCP/UDP, or static IPs.
 
@@ -42,12 +42,12 @@ aws_lb (the load balancer)
                           └── registered targets
 ```
 
-| Object | Role |
-|---|---|
-| `aws_lb` | The ALB itself; sits in ≥2 public subnets |
-| `aws_lb_listener` | "Traffic on port X, protocol Y → route by these rules" |
-| `aws_lb_listener_rule` | Conditional routing on listener (path/host) |
-| `aws_lb_target_group` | Pool of backends + health-check spec |
+| Object                 | Role                                                   |
+| ---------------------- | ------------------------------------------------------ |
+| `aws_lb`               | The ALB itself; sits in ≥2 public subnets              |
+| `aws_lb_listener`      | "Traffic on port X, protocol Y → route by these rules" |
+| `aws_lb_listener_rule` | Conditional routing on listener (path/host)            |
+| `aws_lb_target_group`  | Pool of backends + health-check spec                   |
 
 ---
 
@@ -72,16 +72,19 @@ resource "aws_lb_target_group" "api" {
 ```
 
 ### `target_type`
-| Value | Targets are | Used when |
-|---|---|---|
-| `instance` | EC2 instance IDs | EC2 launch type |
-| `ip` | IP addresses | **Fargate (required)** |
-| `lambda` | Lambda functions | API behind ALB |
+
+| Value      | Targets are      | Used when              |
+| ---------- | ---------------- | ---------------------- |
+| `instance` | EC2 instance IDs | EC2 launch type        |
+| `ip`       | IP addresses     | **Fargate (required)** |
+| `lambda`   | Lambda functions | API behind ALB         |
 
 ### Registration
+
 ECS auto-registers/deregisters task IPs via the service's `load_balancer` block. You don't manage targets manually.
 
 ### Health check fields
+
 - `path` — URL to GET on the **target's port** (not 80).
 - `matcher` — "200", "200-299", "200,301".
 - `interval` — seconds between checks.
@@ -108,6 +111,7 @@ resource "aws_lb_listener" "http" {
 One listener per (port, protocol). M0 has one: `:80/HTTP`.
 
 ### HTTP → HTTPS redirect
+
 ```hcl
 default_action {
   type = "redirect"
@@ -116,6 +120,7 @@ default_action {
 ```
 
 ### Listener rules (M4+ for path-based routing)
+
 ```hcl
 resource "aws_lb_listener_rule" "ws" {
   listener_arn = aws_lb_listener.https.arn
@@ -141,7 +146,7 @@ resource "aws_lb_listener" "https" {
 }
 ```
 
-**ACM** issues free TLS certs for domains *you control*. DNS validation. Auto-renews.
+**ACM** issues free TLS certs for domains _you control_. DNS validation. Auto-renews.
 
 **Catch:** ACM doesn't issue certs for AWS's `*.elb.amazonaws.com`. Without a custom domain, no ACM cert. **M0 is HTTP-only.** When we attach a domain (likely M1), we'll add the cert + HTTPS listener + redirect + open :443 on the ALB SG.
 
@@ -168,7 +173,7 @@ For WebSockets (M4+): lower to ~60s + send "going away" frame from server so cli
 
 For HTTP: ALB freely picks any healthy target. That's load balancing.
 
-For WebSocket: the WS handshake is HTTP, but once established the TCP connection is pinned to one backend. ALB doesn't *need* stickiness for WS. Only if the same client opens multiple WS connections expecting the same backend.
+For WebSocket: the WS handshake is HTTP, but once established the TCP connection is pinned to one backend. ALB doesn't _need_ stickiness for WS. Only if the same client opens multiple WS connections expecting the same backend.
 
 Skip in M0; revisit at M4.
 
@@ -189,6 +194,7 @@ Skip in M0; revisit at M4.
 ```
 
 Status codes from the ALB itself:
+
 - **502 Bad Gateway** — target unreachable / refused.
 - **503 Service Unavailable** — no healthy targets.
 - **504 Gateway Timeout** — target too slow.

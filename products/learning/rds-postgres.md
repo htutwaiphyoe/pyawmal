@@ -1,18 +1,18 @@
 # RDS Postgres Operations — From Scratch
 
-> Companion to M0. Reference doc for Task 24 (RDS + Secrets Manager). Postgres *internals* (ACID/MVCC/indexes) live in a separate doc.
+> Companion to M0. Reference doc for Task 24 (RDS + Secrets Manager). Postgres _internals_ (ACID/MVCC/indexes) live in a separate doc.
 
 ---
 
 ## 1. The split
 
-| What AWS owns | What you own |
-|---|---|
+| What AWS owns                     | What you own               |
+| --------------------------------- | -------------------------- |
 | OS, patching, the Postgres binary | Schema design + migrations |
-| Backups + WAL shipping | Queries + indexes |
-| Failover (Multi-AZ) | Parameter tuning |
-| Disk-level snapshots | Instance sizing |
-| Monitoring infrastructure | Verifying restores work |
+| Backups + WAL shipping            | Queries + indexes          |
+| Failover (Multi-AZ)               | Parameter tuning           |
+| Disk-level snapshots              | Instance sizing            |
+| Monitoring infrastructure         | Verifying restores work    |
 
 RDS owns operations; you own the data model + workload.
 
@@ -20,13 +20,13 @@ RDS owns operations; you own the data model + workload.
 
 ## 2. RDS vs Aurora vs Serverless v2 vs self-hosted
 
-| | RDS Postgres | Aurora Postgres | Aurora Serverless v2 | Self-hosted EC2 |
-|---|---|---|---|---|
-| Engine | Vanilla | AWS fork + custom storage | Aurora autoscaling | Anything |
-| Storage | EBS (gp3) | Distributed (6x across 3 AZs) | Same | DIY |
-| Backup | Snapshots + WAL → S3 | Continuous → S3 | Same | DIY |
-| Failover | 60-120s (Multi-AZ) | ~30s | Same as Aurora | DIY |
-| Cost (small) | ~$13/mo | ~$25/mo | Per ACU-hour | $5-20/mo + your time |
+|              | RDS Postgres         | Aurora Postgres               | Aurora Serverless v2 | Self-hosted EC2      |
+| ------------ | -------------------- | ----------------------------- | -------------------- | -------------------- |
+| Engine       | Vanilla              | AWS fork + custom storage     | Aurora autoscaling   | Anything             |
+| Storage      | EBS (gp3)            | Distributed (6x across 3 AZs) | Same                 | DIY                  |
+| Backup       | Snapshots + WAL → S3 | Continuous → S3               | Same                 | DIY                  |
+| Failover     | 60-120s (Multi-AZ)   | ~30s                          | Same as Aurora       | DIY                  |
+| Cost (small) | ~$13/mo              | ~$25/mo                       | Per ACU-hour         | $5-20/mo + your time |
 
 **Use vanilla RDS** unless scale justifies Aurora. M0 uses RDS; M16 might revisit.
 
@@ -35,6 +35,7 @@ RDS owns operations; you own the data model + workload.
 ## 3. Instance types and storage
 
 ### Instance class
+
 - `db.t4g.*` — burstable ARM; cheap. Sustained high CPU burns credits.
 - `db.m7g.*` — general purpose, no bursting.
 - `db.r7g.*` — memory-optimized.
@@ -43,6 +44,7 @@ RDS owns operations; you own the data model + workload.
 **RAM matters most** for Postgres (buffer cache). M0: `db.t4g.micro`.
 
 ### Storage
+
 - `gp3` (default) — 3000 IOPS baseline + 125 MB/s.
 - `io2` — provisioned IOPS, expensive.
 - `magnetic` — don't.
@@ -50,6 +52,7 @@ RDS owns operations; you own the data model + workload.
 **Enable storage autoscaling** (`max_allocated_storage`) — manually resizing is multi-hour.
 
 ### Encryption
+
 Always on. Can't encrypt unencrypted instances after the fact — must snapshot → encrypted-restore. Encrypt from day one.
 
 ---
@@ -106,6 +109,7 @@ backup_window           = "02:00-04:00"
 ```
 
 Restore:
+
 ```bash
 aws rds restore-db-instance-to-point-in-time \
   --source-db-instance-identifier pyawmal-dev \
@@ -128,6 +132,7 @@ Creates a **new** instance. Original untouched.
 - **Manual** — `aws rds create-db-snapshot`, live forever.
 
 Use manual snapshots before risky operations:
+
 ```bash
 aws rds create-db-snapshot \
   --db-instance-identifier pyawmal-dev \
@@ -141,10 +146,13 @@ Restoring creates a new instance. Cross-region copy via `copy-db-snapshot` (DR).
 ## 8. Multi-AZ vs read replicas
 
 ### Multi-AZ (high availability)
+
 Synchronous standby in another AZ. Same endpoint; transparent failover.
+
 ```hcl
 multi_az = true
 ```
+
 - Failover: 60-120s.
 - Doubles cost.
 - Standby is **not queryable** — pure HA.
@@ -152,7 +160,9 @@ multi_az = true
 M0: `multi_az = false`. M16 enables it.
 
 ### Read replicas (read scaling)
+
 Async replicas with own endpoints. App-side routing decides what reads from where.
+
 - Replica lag typically <1s; unbounded under load.
 - Can be promoted to primary in DR.
 
@@ -163,13 +173,17 @@ Not needed until ~M8 (chat is write-heavy in real time).
 ## 9. Version upgrades
 
 ### Minor (16.3 → 16.4)
+
 Backwards-compatible. `auto_minor_version_upgrade = true` lets RDS apply during maintenance window. **Recommended.** Add `lifecycle { ignore_changes = [engine_version] }` in Terraform.
 
 ### Major (16 → 17)
+
 May have breaking changes. You choose when.
+
 ```bash
 aws rds modify-db-instance --engine-version 17.1 --apply-immediately
 ```
+
 Requires ~10-30 min downtime (or blue/green for seconds).
 
 **Always:** snapshot first → test on non-prod → read release notes.
@@ -191,6 +205,7 @@ Multi-AZ: maintenance on standby first, then failover — minimal downtime. Sing
 ## 11. Monitoring
 
 ### CloudWatch metrics (free, basic)
+
 - `CPUUtilization` → alarm >80%
 - `DatabaseConnections` vs `max_connections`
 - `FreeableMemory` (running low = swap pain)
@@ -199,17 +214,22 @@ Multi-AZ: maintenance on standby first, then failover — minimal downtime. Sing
 - `ReplicaLag` (if multi-AZ or replicas)
 
 ### Enhanced Monitoring (~$1.30/mo)
+
 OS-level per-process metrics at 1-60s intervals.
 
 ### Performance Insights (free first 7 days)
+
 **The most useful RDS feature.** Shows which queries consume DB time, broken down by wait events.
+
 ```hcl
 performance_insights_enabled          = true
 performance_insights_retention_period = 7
 ```
 
 ### `pg_stat_statements`
+
 Postgres extension for aggregated query stats. Enable via parameter group:
+
 ```sql
 SELECT query, calls, total_exec_time
 FROM pg_stat_statements
@@ -222,10 +242,13 @@ LIMIT 20;
 ## 12. Connecting to RDS
 
 ### From inside VPC (normal path)
+
 ECS task → ECS SG → RDS SG → :5432. `DATABASE_URL` from Secrets Manager.
 
 ### From your laptop
+
 Private subnet = no direct connect. Options:
+
 1. **ECS Exec into a task running `psql`** — lightest:
    ```bash
    aws ecs execute-command --cluster pyawmal-dev --task <id> --container api \
@@ -235,6 +258,7 @@ Private subnet = no direct connect. Options:
 3. **VPN** (Client VPN to VPC).
 
 ### IAM auth (optional security upgrade)
+
 Exchange IAM credential for a 15-min DB token. No long-lived password. M16 territory.
 
 ---

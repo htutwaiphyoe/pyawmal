@@ -5,24 +5,24 @@
 
 ## Stack
 
-| Layer | Choice |
-|---|---|
-| Backend language | Node.js 20 + TypeScript |
-| API framework | Fastify |
-| Database | PostgreSQL 16 |
-| ORM | Prisma |
-| Frontend (placeholder in M0) | Next.js 14 (App Router) |
-| Monorepo | pnpm workspaces + Turborepo |
-| Cloud | AWS — region `ap-southeast-1` (Singapore) |
-| Compute | ECS Fargate (single task, single AZ for M0) |
-| Database hosting | RDS Postgres (`db.t4g.micro`, single-AZ) |
-| Ingress | Application Load Balancer (HTTP-only in M0 since no custom domain; HTTPS added when a domain attaches in a later milestone) |
-| Image registry | ECR |
-| Secrets | AWS Secrets Manager |
-| Logs | CloudWatch Logs |
-| Infrastructure as code | Terraform |
-| CI/CD | GitHub Actions (OIDC; no long-lived AWS keys) |
-| Container | Docker (multi-stage build) |
+| Layer                        | Choice                                                                                                                      |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Backend language             | Node.js 20 + TypeScript                                                                                                     |
+| API framework                | Fastify                                                                                                                     |
+| Database                     | PostgreSQL 16                                                                                                               |
+| ORM                          | Prisma                                                                                                                      |
+| Frontend (placeholder in M0) | Next.js 14 (App Router)                                                                                                     |
+| Monorepo                     | pnpm workspaces + Turborepo                                                                                                 |
+| Cloud                        | AWS — region `ap-southeast-1` (Singapore)                                                                                   |
+| Compute                      | ECS Fargate (single task, single AZ for M0)                                                                                 |
+| Database hosting             | RDS Postgres (`db.t4g.micro`, single-AZ)                                                                                    |
+| Ingress                      | Application Load Balancer (HTTP-only in M0 since no custom domain; HTTPS added when a domain attaches in a later milestone) |
+| Image registry               | ECR                                                                                                                         |
+| Secrets                      | AWS Secrets Manager                                                                                                         |
+| Logs                         | CloudWatch Logs                                                                                                             |
+| Infrastructure as code       | Terraform                                                                                                                   |
+| CI/CD                        | GitHub Actions (OIDC; no long-lived AWS keys)                                                                               |
+| Container                    | Docker (multi-stage build)                                                                                                  |
 
 ## Architecture
 
@@ -60,11 +60,13 @@
 ## CI/CD pipeline
 
 **On every pull request**
+
 - Install dependencies (`pnpm install`).
 - Lint, type-check, run unit tests.
 - `terraform validate` + `terraform plan` (no apply).
 
 **On merge to `main`**
+
 - Everything above.
 - Build the API image (multi-stage Docker).
 - Push to ECR.
